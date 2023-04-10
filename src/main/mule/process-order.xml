@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:custom-metrics="http://www.mulesoft.org/schema/mule/custom-metrics" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:anypoint-mq="http://www.mulesoft.org/schema/mule/anypoint-mq"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/anypoint-mq http://www.mulesoft.org/schema/mule/anypoint-mq/current/mule-anypoint-mq.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/custom-metrics http://www.mulesoft.org/schema/mule/custom-metrics/current/mule-custom-metrics.xsd">
+	<flow name="process-orderFlow" doc:id="91d808be-07f0-406a-b1b7-11fc7d44af4e" >
+		<anypoint-mq:subscriber doc:name="Subscriber" doc:id="d0be27e3-6607-492d-88db-b50fca4c7f46" config-ref="Anypoint_MQ_Config" destination="demo-order-queue" acknowledgementMode="MANUAL"/>
+		   <logger level="INFO" doc:name="Start of Anypoint Consume flow" doc:id="b5bbc538-51cf-4e5b-aee0-2cda3a4e3a89" message='#["Start of Anypoint Consume flow"]'/>
+		<set-variable variableName="currentAckToken"
+       value="#[attributes.ackToken]" doc:name="Anypoint MQ tocken"/>
+		<logger level="INFO" doc:name="Log orderId" doc:id="9b151fcc-d281-4d44-9e2a-84c68a9f9ebc" message="#[payload.orderId]"/>
+		<ee:transform doc:name="Determine ERP" doc:id="3350467e-59ba-41f6-a9b7-c32a1362abea" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="erpSystem" ><![CDATA[%dw 2.0
+output application/json
+var erpSystem = ["SAP" , "QAD", "Legacy", "error"]
+var randomError = round(random() * 10/2 )
+
+---
+erpSystem[randomError] default "error1"
+]]></ee:set-variable>
+				<ee:set-variable variableName="businessGroup" ><![CDATA[%dw 2.0
+output application/java
+fun randomNumber() = floor(random() * 6/2)
+var businessRegions = ["widgets", "gizmos", "gadgets"]
+---
+businessRegions[randomNumber()]]]></ee:set-variable>
+				<ee:set-variable variableName="geoRegion" ><![CDATA[%dw 2.0
+output application/java
+fun randomNumber() = floor(random() * 10/2)
+var businessRegions = ["amer", "emea", "latam","apac","RESTRICTED"]
+---
+businessRegions[randomNumber()]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Log ERP type" doc:id="514cddd8-f985-4f64-a3b1-8d047d580a6e" message="#[vars.erpSystem]"/>
+		<choice doc:name="Choice" doc:id="db2944d1-55aa-4989-962e-228b54a3bd55" >
+			<when expression='#[vars.erpSystem == "SAP"]'>
+				<flow-ref doc:name="Create SAP Order" doc:id="a45dd50a-fff3-4c68-9c6a-27e7a7ae96ed" name="imp-orderValidationFlow"/>
+			</when>
+			<when expression='#[vars.erpSystem == "QAD"]'>
+				<flow-ref doc:name="Create QAD Order" doc:id="4f603570-21c0-4052-ba5c-92481d2c7d7f" name="imp-orderValidationFlow" />
+			</when>
+			<when expression='#[vars.erpSystem == "Legacy"]'>
+				<flow-ref doc:name="Create Legacy Order" doc:id="970a2b4b-bbe6-4698-9d97-dc9ec6ef4cb0" name="imp-orderValidationFlow" />
+			</when>
+			<otherwise >
+				<raise-error doc:name="Invalid ERP" doc:id="1ffeabfe-1d5a-4ce9-bb23-ded810ce72f8" type="APP:INVALID_ERP" description='"Invalid ERP"'/>
+			</otherwise>
+		</choice>
+		<custom-metrics:send doc:name="Send Custom Metric" doc:id="26719775-3a66-4219-9af3-8c500357e9b3" metricName="chargeBack">
+			<error-mapping sourceType="CUSTOM-METRICS:INVALID_PARAMETER" targetType="APP:INVALID_PARAMETER" />
+			<custom-metrics:dimensions >
+				<custom-metrics:dimension dimensionName="businessGroup" value="#[vars.businessGroup]" />
+				<custom-metrics:dimension dimensionName="geoRegion" value="#[vars.geoRegion]" />
+			</custom-metrics:dimensions>
+			<custom-metrics:facts >
+				<custom-metrics:fact factName="orderCount" value="1" />
+				<custom-metrics:fact factName="orderAmount" value="#[payload.orderAmount]" />
+			</custom-metrics:facts>
+		</custom-metrics:send> 
+		<anypoint-mq:ack doc:name="Ack" doc:id="9cb9156e-bd46-4045-bf81-23063aa031bd" config-ref="Anypoint_MQ_Config" ackToken="#[vars.currentAckToken]"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3c58b583-ee34-4e03-93c3-f12da7f0352d" type="APP:INVALID_ERP,APP:INVALID_ADDRESS,APP:CUSTOMER_NOT_FOUND,APP:PRODUCT_NOT_FOUND,APP:INVALID_PRICE,APP:INVALID_CUSTOMER,APP:INVALID_ADDRESS">
+				<logger level="INFO" doc:name="Logger" doc:id="11fd71db-d02c-4e1a-928d-4d2f9ceeb275" message='#["Valid Error valid"]'/>
+				<custom-metrics:send doc:name="Send Order Failure" doc:id="692d05b4-3faa-4d0c-8ea8-33d6c73f77fa" metricName="businessOrderFailure">
+					<error-mapping sourceType="CUSTOM-METRICS:INVALID_PARAMETER" targetType="APP:INVALID_PARAMETER" />
+					<custom-metrics:dimensions >
+						<custom-metrics:dimension dimensionName="erpSystem" value="#[vars.erpSystem]"/>
+						<custom-metrics:dimension dimensionName="failReason" value='#[error.errorType.asString  replace ":" with "_"]'/>
+						<custom-metrics:dimension dimensionName="orderId" value="#[payload.orderId]"/>
+					</custom-metrics:dimensions>
+					<custom-metrics:facts >
+						<custom-metrics:fact factName="failCount" value="1" />
+						<custom-metrics:fact factName="orderAmount" value="#[payload.orderAmount]" />
+					</custom-metrics:facts>
+				</custom-metrics:send>
+				<anypoint-mq:publish doc:name="Write to Error Queue" doc:id="28dc3d50-e561-48ab-9e4a-79ab0382d490" config-ref="Anypoint_MQ_Config" destination='#["order-error-queue"]'/>
+				<anypoint-mq:ack doc:name="Ack" doc:id="37f9e87f-a439-4d00-912d-4e3d2a788895" config-ref="Anypoint_MQ_Config" ackToken="#[vars.currentAckToken]" />
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="57bba631-3a34-41ab-9b5f-3ff2febc0d81" type="ANY">
+				<logger level="INFO" doc:name="Logger" doc:id="5573c079-d0f7-4fde-8fc9-98a778d10e8b" message='#["Error flow"]'/>
+				<custom-metrics:send doc:name="Send Order Failure" doc:id="41d19609-a02f-43c9-8051-7533fc3e573f" metricName="technicalOrderFailure">
+					<error-mapping sourceType="CUSTOM-METRICS:INVALID_PARAMETER" targetType="APP:INVALID_PARAMETER" />
+					<custom-metrics:dimensions>
+						<custom-metrics:dimension dimensionName="erpSystem" value="#[vars.erpSystem]" />
+						<custom-metrics:dimension dimensionName="failReason" value='#[error.errorType.asString  replace ":" with "_"]' />
+						<custom-metrics:dimension dimensionName="orderId" value="#[payload.orderId]" />
+					</custom-metrics:dimensions>
+					<custom-metrics:facts>
+						<custom-metrics:fact factName="failCount" value="1" />
+						<custom-metrics:fact factName="orderAmount" value="#[payload.orderAmount]" />
+					</custom-metrics:facts>
+				</custom-metrics:send>
+				<anypoint-mq:nack doc:name="Nack" doc:id="7e7b5496-d578-4857-8b99-c697cce025f1" config-ref="Anypoint_MQ_Config" ackToken="#[vars.currentAckToken]"/>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>

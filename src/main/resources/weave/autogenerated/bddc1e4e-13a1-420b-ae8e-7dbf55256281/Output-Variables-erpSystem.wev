@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_bddc1e4e_13a1_420b_ae8e_7dbf55256281_Output_Variables_erpSystem = "SAP" | "QAD" | "Legacy" | "error" | "error1"
+

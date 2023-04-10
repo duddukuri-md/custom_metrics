@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:custom-metrics="http://www.mulesoft.org/schema/mule/custom-metrics" xmlns:anypoint-mq="http://www.mulesoft.org/schema/mule/anypoint-mq"
+	xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/anypoint-mq http://www.mulesoft.org/schema/mule/anypoint-mq/current/mule-anypoint-mq.xsd
+http://www.mulesoft.org/schema/mule/custom-metrics http://www.mulesoft.org/schema/mule/custom-metrics/current/mule-custom-metrics.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="6274ecc9-caad-429b-86f5-1a2636771537" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<anypoint-mq:config name="Anypoint_MQ_Config" doc:name="Anypoint MQ Config" doc:id="286931c3-7940-4053-8b98-536772c3991c" >
+		<anypoint-mq:connection url="URL" clientId="Client ID" clientSecret="Client Secret" />
+	</anypoint-mq:config>
+	<flow name="order-processingFlow" doc:id="1c03c452-be8c-44e9-83a8-8002779537d7" >
+		<http:listener doc:name="Listener" doc:id="1c4b96e9-2733-478b-ab20-4ac6037e8ac6" config-ref="HTTP_Listener_config" path="/generateorder"/>
+		<ee:transform doc:name="Transform Message" doc:id="d6c14bf3-d285-41e4-9fac-deae3da08456" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var failReason = ["ERP Not Found","Invalid Address" , "Customer Not Found", "Product Not Found", "Invalid Price", "Invalid Customer"]
+var outComeChance = round(random() * 10 )
+var randomError = round(random() * 10/2 )
+var orderNumber = (upper(uuid()) replace "-" with "")[0 to 8]
+var cntryArray = [ "BD", "AS", "BE", "EU", "BF", "AF", "BG", "EU", "BA", "EU", "BB", "NA", "WF", "OC", "BL", "NA", "BM", "NA", "BN", "AS", "BO", "SA", "BH", "AS", "BI", "AF", "BJ", "AF", "BT", "AS", "JM", "NA", "BV", "AN", "BW", "AF", "WS", "OC", "BQ", "NA", "BR", "SA", "BS", "NA", "JE", "EU", "BY", "EU", "BZ", "NA", "RU", "EU", "RW", "AF", "RS", "EU", "TL", "OC", "RE", "AF", "TM", "AS", "TJ", "AS", "RO", "EU", "TK", "OC", "GW", "AF", "GU", "OC", "GT", "NA", "GS", "AN", "GR", "EU", "GQ", "AF", "GP", "NA", "JP", "AS", "GY", "SA", "GG", "EU", "GF", "SA", "GE", "AS", "GD", "NA", "GB", "EU", "GA", "AF", "SV", "NA", "GN", "AF", "GM", "AF", "GL", "NA", "GI", "EU", "GH", "AF", "OM", "AS", "TN", "AF", "JO", "AS", "HR", "EU", "HT", "NA", "HU", "EU", "HK", "AS", "HN", "NA", "HM", "AN", "VE", "SA", "PR", "NA", "PS", "AS", "PW", "OC", "PT", "EU", "SJ", "EU", "PY", "SA", "IQ", "AS", "PA", "NA", "PF", "OC", "PG", "OC", "PE", "SA", "PK", "AS", "PH", "AS", "PN", "OC", "PL", "EU", "PM", "NA", "ZM", "AF", "EH", "AF", "EE", "EU", "EG", "AF", "ZA", "AF", "EC", "SA", "IT", "EU", "VN", "AS", "SB", "OC", "ET", "AF", "SO", "AF", "ZW", "AF", "SA", "AS", "ES", "EU", "ER", "AF", "ME", "EU", "MD", "EU", "MG", "AF", "MF", "NA", "MA", "AF", "MC", "EU", "UZ", "AS", "MM", "AS", "ML", "AF", "MO", "AS", "MN", "AS", "MH", "OC", "MK", "EU", "MU", "AF", "MT", "EU", "MW", "AF", "MV", "AS", "MQ", "NA", "MP", "OC", "MS", "NA", "MR", "AF", "IM", "EU", "UG", "AF", "TZ", "AF", "MY", "AS", "MX", "NA", "IL", "AS", "FR", "EU", "IO", "AS", "SH", "AF", "FI", "EU", "FJ", "OC", "FK", "SA", "FM", "OC", "FO", "EU", "NI", "NA", "NL", "EU", "NO", "EU", "NA", "AF", "VU", "OC", "NC", "OC", "NE", "AF", "NF", "OC", "NG", "AF", "NZ", "OC", "NP", "AS", "NR", "OC", "NU", "OC", "CK", "OC", "XK", "EU", "CI", "AF", "CH", "EU", "CO", "SA", "CN", "AS", "CM", "AF", "CL", "SA", "CC", "AS", "CA", "NA", "CG", "AF", "CF", "AF", "CD", "AF", "CZ", "EU", "CY", "EU", "CX", "AS", "CR", "NA", "CW", "NA", "CV", "AF", "CU", "NA", "SZ", "AF", "SY", "AS", "SX", "NA", "KG", "AS", "KE", "AF", "SS", "AF", "SR", "SA", "KI", "OC", "KH", "AS", "KN", "NA", "KM", "AF", "ST", "AF", "SK", "EU", "KR", "AS", "SI", "EU", "KP", "AS", "KW", "AS", "SN", "AF", "SM", "EU", "SL", "AF", "SC", "AF", "KZ", "AS", "KY", "NA", "SG", "AS", "SE", "EU", "SD", "AF", "DO", "NA", "DM", "NA", "DJ", "AF", "DK", "EU", "VG", "NA", "DE", "EU", "YE", "AS", "DZ", "AF", "US", "NA", "UY", "SA", "YT", "AF", "UM", "OC", "LB", "AS", "LC", "NA", "LA", "AS", "TV", "OC", "TW", "AS", "TT", "NA", "TR", "AS", "LK", "AS", "LI", "EU", "LV", "EU", "TO", "OC", "LT", "EU", "LU", "EU", "LR", "AF", "LS", "AF", "TH", "AS", "TF", "AN", "TG", "AF", "TD", "AF", "TC", "NA", "LY", "AF", "VA", "EU", "VC", "NA", "AE", "AS", "AD", "EU", "AG", "NA", "AF", "AS", "AI", "NA", "VI", "NA", "IS", "EU", "IR", "AS", "AM", "AS", "AL", "EU", "AO", "AF", "AQ", "AN", "AS", "OC", "AR", "SA", "AU", "OC", "AT", "EU", "AW", "NA", "IN", "AS", "AX", "EU", "AZ", "AS", "IE", "EU", "ID", "AS", "UA", "EU", "QA", "AS", "MZ", "AF"]
+fun countryIndex() = randomInt(sizeOf(cntryArray)-1)
+fun genOrderId() = (upper(uuid()) replace "-" with "")[0 to 9]
+fun randomNumber() = round(random() * 1000000 ) / 100
+---
+{
+	orderId : genOrderId(),
+	"billingAddress" : {
+		"country": cntryArray[countryIndex()]
+	},
+	orderAmount: randomNumber(),
+	failReason : failReason[randomError],
+	outcome: if(outComeChance > 6 ) if(randomError ==  5) "good" else "error" else "good"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<anypoint-mq:publish doc:name="Publish" doc:id="2ba44112-0ac5-4ec6-8bc2-44bd84a439be" config-ref="Anypoint_MQ_Config" destination='#["demo-order-queue"]'/>
+		</flow>
+	<flow name="order-processingFlow1" doc:id="fa251a27-aeb0-4d9b-8e08-b8b5b4d7e360" >
+		<http:listener doc:name="Listener" doc:id="0deeee54-cff0-4082-bee7-5a45c83c222a" config-ref="HTTP_Listener_config" path="/arraygenerateorder"/>
+				<ee:transform doc:name="Create payload for custom metrics" doc:id="f7a15740-c2f6-42ed-bda2-697c164a52e3">
+			<ee:message>
+			</ee:message>
+					<ee:variables >
+				<ee:set-variable variableName="metricPayload" ><![CDATA[%dw 2.0
+output application/json skipNullOn = "everywhere"
+---
+payload map ((item, index) ->
+{
+    "orderId": item.orderId,
+	"billingAddress": item.billingAddress.country,
+	"orderAmount": item.orderAmount
+}
+ )]]></ee:set-variable>
+					</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="9c0002b2-f650-4d17-83dd-47b06da7a09a" collection="#[vars.metricPayload]">
+			<ee:transform doc:name="Dynamic Custom Metric Payload" doc:id="78131a91-b681-435e-8e61-6b13756c508f">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload pluck ((value1, key, index) -> {
+    value: value1,
+    dimensionName: key,
+    collapsible: true
+})]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			<custom-metrics:send doc:name="Send Custom Metric" doc:id="32083412-568e-4e95-8a94-6135373d9409" metricName="multipleOrders" dimensions="#[payload]">
+			<error-mapping sourceType="CUSTOM-METRICS:INVALID_PARAMETER" targetType="APP:INVALID_PARAMETER" />
+			<custom-metrics:facts>
+				<custom-metrics:fact factName="orderCount" value="1" />
+			</custom-metrics:facts>
+		</custom-metrics:send>
+		</foreach> 
+	</flow>
+		</mule>

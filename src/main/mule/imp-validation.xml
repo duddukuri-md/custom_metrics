@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="imp-orderValidationFlow" doc:id="bddc1e4e-13a1-420b-ae8e-7dbf55256281" >
+		<logger level="INFO" doc:name="Logger" doc:id="5dfce410-f60f-4ce7-9e54-8d45d0a8383c" message='#["Validation Flow"]'/>
+		<ee:transform doc:name="Transform Message" doc:id="ea1d9ca9-a6c4-4216-8263-fc58c0b9ca63" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="errorInfo" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.failReason]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="868be511-89f5-4753-80ae-67fa5913ca3d" >
+						<when expression='#[vars.errorInfo == "ERP Not Found"]'>
+				<raise-error doc:name="Raise error" doc:id="ab6592fc-2457-4773-931d-76f83a079ffd" type="ANY" description="ERP Not Found"/>
+			</when>
+			<when expression='#[payload.outcome != "good" and vars.errorInfo == "Invalid Address"]'>
+				<raise-error doc:name="Raise error" doc:id="c7b731e0-742a-48f0-aff6-d4f5a58147ea" type="APP:INVALID_ADDRESS" description="Invalid Address"/>
+			</when>
+			<when expression='#[payload.outcome != "good" and vars.errorInfo == "Customer Not Found"]'>
+				<raise-error doc:name="Raise error" doc:id="d8b55380-5069-42d0-83eb-3c14cde24455" type="APP:CUSTOMER_NOT_FOUND" description="Invalid Customer" />
+			</when>
+			<when expression='#[payload.outcome != "good" and vars.errorInfo == "Product Not Found"]'>
+				<raise-error doc:name="Raise error" doc:id="38977c1a-8782-4c53-ae90-b273db7e8685" type="APP:PRODUCT_NOT_FOUND" description="Invalid Product" />
+			</when>
+			<when expression='#[payload.outcome != "good" and vars.errorInfo == "Invalid Price"]'>
+				<raise-error doc:name="Raise error" doc:id="1f463420-4827-4cc3-a6ca-2a94d7d4b7bd" type="APP:INVALID_PRICE" description="Invalid Prirce" />
+			</when>
+			<when expression='#[payload.outcome != "good" and vars.errorInfo == "Invalid Customer"]'>
+				<raise-error doc:name="Raise error" doc:id="a675b8a8-3ad3-4957-8352-6e3f20d79261" type="APP:INVALID_CUSTOMER" description="Invalid Customer"/>
+			</when>
+			<when expression='#[payload.outcome != "good" and vars.errorInfo == "ERP Not Found"]'>
+				<raise-error doc:name="Raise error" doc:id="b37a423b-18d5-43da-9b0c-0079fd5c23ba" type="ANY" description="ERP Not Found"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="e501d4e3-e043-41e7-886a-96fc24a1ded4" message='#["Default"]'/>
+			</otherwise>
+		</choice>
+	</flow>
+	<sub-flow name="imp-validationSub_Flow" doc:id="3ec883ca-1eb0-4960-b56a-6db52e357978" >
+		<logger level="INFO" doc:name="Logger" doc:id="a4bd9034-2a6e-4ef3-a989-a8879bee8190" message="dummy data"/>
+	</sub-flow>
+</mule>
